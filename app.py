@@ -6,14 +6,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 
-# Set up the app - THIS MUST BE THE FIRST STREAMLIT COMMAND
 st.set_page_config(page_title="Anxiety Level Predictor", layout="wide")
-st.title("🧠 Anxiety Level Predictor")
-st.markdown("This application predicts anxiety levels (1-10) based on personal factors and visualizes data analysis results.")
+st.title("Anxiety Level Predictor")
+st.markdown("---")
 
-# Load the model information
 try:
-    # Load the model and related files
+    # Load the model and files
     model = joblib.load('models/anxiety_model.pkl')
     scaler = joblib.load('models/scaler.pkl')
     columns_info = joblib.load('models/columns.pkl')
@@ -29,8 +27,7 @@ except Exception as e:
     st.error("Did you run main.py first to generate the model files?")
     model_loaded = False
 
-# --- SIDEBAR ---
-# Add a navigation section in the sidebar
+# navigation section in the sidebar
 st.sidebar.header("Navigation")
 app_mode = st.sidebar.radio("Select Section", options=["Prediction", "Data Analysis Visualizations"])
 st.sidebar.markdown("---")
@@ -39,8 +36,6 @@ if model_loaded:
 
     st.sidebar.header("Model Information")
     st.sidebar.info("Model loaded successfully")
-    # Note: R² and RMSE info not available in this version
-    # You can run main.py to see detailed model performance metrics
 
 # Add instructions for using the app
 st.sidebar.header("How to Use This App")
@@ -51,19 +46,6 @@ st.sidebar.write("""
 """)
 st.sidebar.markdown("---")
 
-# Add information about the model and dataset
-st.sidebar.header("About the Model")
-st.sidebar.write("""
-This model was trained on the anxiety level dataset that includes various personal, 
-lifestyle, and health factors. The predictions are based on patterns identified from this data.
-""")
-
-st.sidebar.write("""
-**Note:** This is an educational project and should not be used as a substitute for 
-professional medical advice. If you are concerned about anxiety, please consult a healthcare provider.
-""")
-
-
 
 # Main content based on navigation selection
 if app_mode == "Prediction":
@@ -73,18 +55,18 @@ if app_mode == "Prediction":
     # Get user inputs
     with col1:
         st.subheader("Personal Information")
-        age = st.number_input("Age", min_value=18, max_value=80, value=30)
+        age = st.number_input("Age", min_value=16, max_value=80, value=30)
         gender = st.selectbox("Gender", options=["Male", "Female", "Other"])
         occupation = st.selectbox("Occupation", 
-                                 options=["Student", "Engineer", "Doctor", "Nurse", 
-                                         "Teacher", "Artist", "Athlete", "Lawyer", 
-                                         "Scientist", "Chef", "Musician", "Freelancer", "Other"])
+                                options=["Student", "Engineer", "Doctor", "Nurse", 
+                                        "Teacher", "Artist", "Athlete", "Lawyer", 
+                                        "Scientist", "Chef", "Musician", "Freelancer", "Other"])
         sleep_hours = st.slider("Sleep Hours", min_value=3.0, max_value=12.0, value=7.0, step=0.1)
         physical_activity = st.slider("Physical Activity (hours/week)", min_value=0.0, max_value=10.0, value=3.0, step=0.1)
     
     with col2:
         st.subheader("Health & Lifestyle")
-        caffeine_intake = st.slider("Caffeine Intake (mg/day)", min_value=0, max_value=600, value=200)
+        caffeine_intake = st.slider("Caffeine Intake (mg/day)", min_value=0, max_value=1200, value=200)
         alcohol_consumption = st.slider("Alcohol Consumption (drinks/week)", min_value=0, max_value=20, value=5)
         smoking = st.selectbox("Smoking", options=["Yes", "No"])
         family_history = st.selectbox("Family History of Anxiety", options=["Yes", "No"])
@@ -110,9 +92,9 @@ if app_mode == "Prediction":
     # Predict button
     if st.button("Predict Anxiety Level"):
         if not model_loaded:
-            st.error("Model not loaded. Please ensure model files are in the 'models' directory.")
+            st.error("Model not loaded. Please ensure model files are in the 'models' directory.") # Handle model loading error
         else:
-            # Create a DataFrame with user inputs
+            # Create a DataFrame with user inputs (matching the dataset's columns)
             input_data = pd.DataFrame({
                 'Age': [age],
                 'Gender': [gender],
@@ -135,9 +117,24 @@ if app_mode == "Prediction":
             })
             
             try:
-                # Preprocess input data according to model training procedure
-                # One-hot encode categorical features
-                input_encoded = pd.get_dummies(input_data, columns=categorical_features, drop_first=True)
+                # Handle categorical features manually to ensure correct columns
+                input_encoded = pd.DataFrame(index=[0]) # Create a DataFrame with a single row
+                
+                # Add numerical features directly
+                for col in numerical_features:
+                    input_encoded[col] = input_data[col].values
+                
+                # Handle categorical features manually
+                for col in categorical_features:
+                    # Get all possible values for this categorical feature from model_columns
+                    feature_cols = [c for c in model_columns if c.startswith(f"{col}_")]
+                    
+                    # For each possible value, check if the input matches and set accordingly
+                    for feature_col in feature_cols:
+                        # Extract the value part after the underscore
+                        value = feature_col.split('_', 1)[1]
+                        # Set 1 if input matches this value, 0 otherwise
+                        input_encoded[feature_col] = 1 if input_data[col].values[0] == value else 0
                 
                 # Ensure all columns match the training data
                 for col in model_columns:
@@ -157,7 +154,7 @@ if app_mode == "Prediction":
                 st.success(f"Predicted Anxiety Level: {prediction:.2f}/10")
                 
                 # Visualization - anxiety scale
-                fig, ax = plt.subplots(figsize=(10, 2))
+                fig, ax = plt.subplots(figsize=(10, 2)) # fix = figure size, ax = axes
                 cmap = plt.cm.RdYlGn_r
                 norm = plt.Normalize(1, 10)
                 
@@ -167,7 +164,7 @@ if app_mode == "Prediction":
                 
                 ax.axvline(prediction, color='black', linewidth=4)
                 ax.set_title('Anxiety Level Scale')
-                ax.set_xticks(range(1, 11))
+                ax.set_xticks(range(1, 11)) # set x axis ticks to 1-10 in order to align with scale
                 ax.set_xticklabels(['1\nVery Low', '2', '3', '4', '5\nModerate', 
                                     '6', '7', '8', '9', '10\nVery High'])
                 
@@ -182,61 +179,12 @@ if app_mode == "Prediction":
                 else:
                     st.error("High anxiety level. Consider consulting with a mental health professional.")
                 
-                # Feature contribution section
-                if hasattr(model, 'coef_'):
-                    st.subheader("Key Factors Influencing Your Result")
-                    
-                    try:
-                        # Get feature names
-                        feature_names = model_columns
-                        
-                        # Calculate feature contributions
-                        coefficients = model.coef_
-                        input_array = input_encoded.to_numpy()
-                        
-                        # Ensure we have the right shapes
-                        if len(coefficients) == len(feature_names) and input_array.shape[1] == len(feature_names):
-                            # Calculate contribution for each feature
-                            contributions = []
-                            for i in range(len(feature_names)):
-                                contributions.append(coefficients[i] * input_array[0, i])
-                            
-                            # Create DataFrame with contributions
-                            contribution_df = pd.DataFrame({
-                                'Feature': feature_names,
-                                'Contribution': contributions
-                            })
-                            
-                            # Sort by absolute contribution and get top 5
-                            contribution_df['AbsContribution'] = contribution_df['Contribution'].abs()
-                            contribution_df = contribution_df.sort_values('AbsContribution', ascending=False).drop('AbsContribution', axis=1)
-                            top_contributions = contribution_df.head(5)
-                            
-                            # Create a bar chart for the contributions
-                            fig, ax = plt.subplots(figsize=(10, 5))
-                            colors = ['#ff9999' if x > 0 else '#66b3ff' for x in top_contributions['Contribution']]
-                            ax.barh(top_contributions['Feature'], top_contributions['Contribution'], color=colors)
-                            ax.set_xlabel('Contribution to Anxiety Level')
-                            ax.set_title('Top 5 Factors Influencing Your Prediction')
-                            ax.axvline(x=0, color='black', linestyle='-', linewidth=0.5)
-                            
-                            st.pyplot(fig)
-                            
-                            st.write("**Interpretation:**")
-                            st.write("- **Red bars**: Factors that increase anxiety level")
-                            st.write("- **Blue bars**: Factors that decrease anxiety level")
-                        else:
-                            st.warning("Unable to calculate feature contributions due to shape mismatch.")
-                    except Exception as e:
-                        st.warning("Could not calculate feature contributions.")
-                        # Don't show technical error details to users
             except Exception as e:
                 st.error("Error making prediction")
                 st.write("Please ensure all input fields are correctly filled and try again.")
 
 elif app_mode == "Data Analysis Visualizations":
-    st.markdown("---")
-    st.header("📊 Data Analysis Visualizations")
+    st.header("Data Analysis Visualizations")
     st.markdown("These visualizations show the analysis performed on the anxiety level dataset.")
     
     # Create tabs for different visualization categories
